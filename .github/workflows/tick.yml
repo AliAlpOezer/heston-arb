@@ -1,0 +1,75 @@
+name: live-tick
+
+# One Heston-arb tick per run. The market-hours guard inside trading.loop
+# (authoritative via the Alpaca clock) makes off-hours / holiday fires cheap no-ops,
+# so we can fire a wide window and let the loop decide whether to trade.
+on:
+  schedule:
+    # Every 5 min, 13:00-21:55 UTC, Mon-Fri. Spans BOTH DST regimes:
+    #   summer RTH 13:30-20:00 UTC, winter RTH 14:30-21:00 UTC.
+    # Cron has no :30 granularity; the loop's clock guard no-ops the extra slots.
+    - cron: '*/5 13-21 * * 1-5'
+  workflow_dispatch: {}   # manual single-tick test
+
+permissions:
+  contents: write         # GITHUB_TOKEN pushes state to the live-data branch
+
+concurrency:
+  group: live-tick        # serialize: never two ticks acting on stale state / double orders
+  cancel-in-progress: false
+
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10   # backstop: kill a hung tick before the next cron fires
+    steps:
+      - name: Checkout code (master)
+        uses: actions/checkout@v4
+
+      - name: Checkout state (live-data branch)
+        uses: actions/checkout@v4
+        with:
+          ref: live-data
+          path: _state
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run one tick (SPY, Alpaca paper)
+        env:
+          ALPACA_API_KEY:    ${{ secrets.ALPACA_API_KEY }}
+          ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
+          FRED_API_KEY:      ${{ secrets.FRED_API_KEY }}
+          JAX_PLATFORMS: cpu          # GHA runners are CPU-only; force JAX to CPU
+          JAX_PLATFORM_NAME: cpu      # older JAX alias for the same
+        run: |
+          python -m trading.loop \
+            --ticker SPY --alpaca --live --ticks 1 \
+            --state-path     _state/live_state.json \
+            --kill-log       _state/kill_log.json \
+            --kill-flag      _state/kill_flag.json \
+            --tick-log       _state/tick_log.jsonl \
+            --chain-log-dir  _state/chains
+
+      - name: Commit + push state
+        working-directory: _state
+        run: |
+          git config user.name  "heston-bot"
+          git config user.email "heston-bot@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No state changes — nothing to commit."
+          else
+            git commit -m "live tick $(date -u +%FT%TZ)"
+            # Serialized by `concurrency`, but rebase defensively in case live-data moved.
+            git pull --rebase origin live-data || true
+            git push origin HEAD:live-data
+          fi
