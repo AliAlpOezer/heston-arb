@@ -315,6 +315,20 @@ def _append_tick_log(path: Optional[Path], record: dict) -> None:
         warnings.warn(f"[loop] tick log write failed: {e}")
 
 
+def _emit_outcome(tick_log_path: Optional[Path], state, now: str, today: str,
+                  status: str, **extra) -> None:
+    """Write a minimal outcome record for a tick that ended on an early-exit path.
+
+    Every non-OK path (halt, market closed, fetch/spot/thin-chain/calib error, kill)
+    emits one of these so the tick log is the single source of truth for loop health —
+    the notifier never has to scrape stdout. OK ticks emit the full record (status="ok")
+    at the end of _run_tick instead.
+    """
+    record = {"tick": state.n_ticks + 1, "time": now, "date": today, "status": status}
+    record.update(extra)
+    _append_tick_log(tick_log_path, record)
+
+
 def _append_chain_log(chain_log_dir: Optional[Path], ticker: str, cleaned,
                       now: str, today: str) -> None:
     """Append the cleaned options chain for this tick to a daily Parquet file.
@@ -433,6 +447,7 @@ def _run_tick(
     # ── 1. Kill-flag guard ────────────────────────────────────────────
     if kc.is_halted():
         print(f"[loop] HALTED — kill flag set. Run `python -m evals.kill reset` to resume.")
+        _emit_outcome(tick_log_path, state, now, today, "halted")
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -444,6 +459,7 @@ def _run_tick(
     if not _market_is_open(broker):
         if verbose:
             print(f"[loop] Market closed — skipping tick (no calibration/orders).")
+        _emit_outcome(tick_log_path, state, now, today, "skip_closed")
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -453,6 +469,7 @@ def _run_tick(
         chain = loader.fetch(ticker, today)
     except Exception as e:
         print(f"[loop] Chain fetch failed: {e}")
+        _emit_outcome(tick_log_path, state, now, today, "err_fetch", error=str(e))
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -460,6 +477,7 @@ def _run_tick(
     spot = chain.spot
     if spot <= 0:
         print(f"[loop] Could not determine spot price — skipping tick")
+        _emit_outcome(tick_log_path, state, now, today, "err_spot", spot=float(spot))
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -480,6 +498,8 @@ def _run_tick(
 
     if surface.n_options < _MIN_OPTIONS_AFTER_CLEAN:
         print(f"[loop] Only {surface.n_options} clean options — skipping tick")
+        _emit_outcome(tick_log_path, state, now, today, "err_thin_chain",
+                      n_raw=len(chain.strikes), n_clean=int(surface.n_options))
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -503,6 +523,7 @@ def _run_tick(
         rmse = calibration_rmse(fitted, cal)
     except Exception as e:
         print(f"[loop] Calibration failed: {e}")
+        _emit_outcome(tick_log_path, state, now, today, "err_calib", error=str(e))
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -516,6 +537,8 @@ def _run_tick(
     kill_state = kc.record(ticker, today, float(rmse))
     if kill_state.halted:
         print(f"[loop] KILL TRIGGERED: {kill_state.reason}")
+        _emit_outcome(tick_log_path, state, now, today, "kill_triggered",
+                      reason=str(kill_state.reason), rmse=round(float(rmse), 6))
         state.last_tick_time = now
         state.n_ticks += 1
         return state
@@ -596,6 +619,7 @@ def _run_tick(
 
     sizing = size_portfolio(new_signals, spot=spot, r=chain.r, q=chain.q)
     n_entered = 0
+    entries_log: list = []   # per-contract detail for the tick log / notifier
 
     for result in sizing:
         if result.qty == 0:
@@ -659,12 +683,18 @@ def _run_tick(
         )
         state.open_positions.append(pos)
         n_entered += 1
+        entries_log.append({
+            "direction": sig.direction, "qty": int(result.qty),
+            "strike": round(float(sig.strike), 2), "expiry": expiry,
+            "vol_gap": round(float(sig.vol_gap), 4),
+        })
 
     # ── 10. Mark existing positions + exits ───────────────────────────
     F = spot * np.exp((chain.r - chain.q) * surface.maturities)
     strikes_arr = F * np.exp(surface.log_moneyness)
     model_ivs = compute_model_ivs(surface, fitted)
     tick_pnl = 0.0
+    exits_log: list = []   # per-contract exit detail for the tick log / notifier
 
     for pos in state.active_positions:
         # Wall-clock holding age in days — interval-agnostic. (Was `age_days += 1`
@@ -749,6 +779,11 @@ def _run_tick(
             pos.exited = True
             pos.exit_date = today
             pos.exit_reason = exit_reason
+            exits_log.append({
+                "direction": pos.direction, "qty": int(pos.qty),
+                "strike": round(float(pos.strike), 2), "expiry": pos.expiry,
+                "reason": exit_reason, "pnl": round(float(pos.cumulative_pnl), 4),
+            })
 
     state.session_pnl += tick_pnl
 
@@ -808,6 +843,7 @@ def _run_tick(
         "tick": state.n_ticks + 1,
         "time": now,
         "date": today,
+        "status": "ok",
         "spot": round(spot, 4),
         "r": round(float(chain.r), 6),
         "q": round(float(chain.q), 6),
@@ -821,6 +857,8 @@ def _run_tick(
         "v0": round(float(fitted.v0), 6),
         "rmse": round(float(rmse), 6),
         "feller_ok": bool(2 * fitted.kappa * fitted.theta >= fitted.xi ** 2),
+        "laplace_ok": posterior is not None,
+        "intraday_paused": bool(intraday_paused),
         "n_signals_raw": len(sm.signals),
         "n_signals_after_uncertainty": len(unc_signals),
         "n_signals_filtered": len(raw_signals),
@@ -829,6 +867,8 @@ def _run_tick(
         "gap_diag": gap_diag,
         "n_entered": n_entered,
         "n_exited": n_exited,
+        "entries": entries_log,
+        "exits": exits_log,
         "open_positions": len(active),
         "tick_pnl": round(tick_pnl, 6),
         "session_pnl": round(state.session_pnl, 6),
