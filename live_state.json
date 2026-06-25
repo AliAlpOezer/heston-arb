@@ -647,9 +647,9 @@
     "rho": -0.5534185478309567,
     "v0": 0.02823476280786136
   },
-  "last_tick_time": "2026-06-25T20:01:31Z",
+  "last_tick_time": "2026-06-25T20:05:53Z",
   "session_pnl": -2474.1189645298937,
-  "n_ticks": 64,
+  "n_ticks": 65,
   "consec_fail_ticks": 0,
   "intraday_halt_date": null,
   "created_at": "2026-06-25T09:32:48.561404"
