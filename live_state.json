@@ -1,0 +1,11 @@
+{
+  "open_positions": [],
+  "current_hedge": 0,
+  "prev_params": null,
+  "last_tick_time": "2026-06-25T09:32:48Z",
+  "session_pnl": 0.0,
+  "n_ticks": 1,
+  "consec_fail_ticks": 0,
+  "intraday_halt_date": null,
+  "created_at": "2026-06-25T09:32:48.561404"
+}
