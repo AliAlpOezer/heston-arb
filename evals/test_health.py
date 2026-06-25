@@ -141,6 +141,10 @@ def test_intraday_breaker():
     kinds, _ = _kinds([_ok(1, intraday_paused=True)])
     assert "intraday_breaker" in kinds
 
+def test_capital_capped():
+    kinds, _ = _kinds([_ok(1, capital_capped=True, deployed_capital=99800.0)])
+    assert "capital_capped" in kinds
+
 def test_gate_problem_signals_cleared_but_zero_traded():
     rec = _ok(1, n_entered=0, n_signals_raw=10,
               gap_diag={"n_cleared_uncertainty": 4, "median_gap_over_hw": 1.8})

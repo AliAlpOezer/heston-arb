@@ -42,6 +42,9 @@ class LivePosition:
     entry_model_iv: float
     entry_vol_gap: float
     entry_spot: float         # spot at entry (for vega/gamma reference)
+    entry_premium: float = 0.0  # capital deployed at entry ($): premium paid (long) or
+                                # estimated initial margin (short). Sums to the book's
+                                # deployed capital for the MAX_PORTFOLIO_CAPITAL check.
     age_days: int = 0
     cumulative_pnl: float = 0.0
     option_order_id: Optional[str] = None   # broker order ID for entry

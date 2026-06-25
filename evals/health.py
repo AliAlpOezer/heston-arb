@@ -285,6 +285,15 @@ def evaluate(records: list, state: Optional[dict] = None) -> EvalResult:
                          f"the uncertainty gate this tick."),
             ))
 
+        if rec.get("capital_capped"):
+            events.append(HealthEvent(
+                tier="warn", kind="capital_capped", tick=tick,
+                title="Capital cap reached",
+                message=(f"⚠️ Deployed capital hit the ${config.MAX_PORTFOLIO_CAPITAL:,.0f} "
+                         f"cap (tick {tick}, deployed=${rec.get('deployed_capital', '?')}). "
+                         f"Lower-priority entries were skipped this tick."),
+            ))
+
         if rec.get("intraday_paused"):
             events.append(HealthEvent(
                 tier="warn", kind="intraday_breaker", tick=tick,

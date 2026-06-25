@@ -621,6 +621,12 @@ def _run_tick(
     n_entered = 0
     entries_log: list = []   # per-contract detail for the tick log / notifier
 
+    # Capital gate: cap premium-at-risk across the WHOLE open book at MAX_PORTFOLIO_CAPITAL.
+    # Seed with capital already deployed in open positions; fill largest-gap-first (sizing
+    # preserves that order) and STOP entering once the next position would breach the cap.
+    deployed_capital = sum(float(p.entry_premium) for p in state.active_positions)
+    capital_capped = False
+
     for result in sizing:
         if result.qty == 0:
             continue
@@ -635,6 +641,21 @@ def _run_tick(
                 print(f"  SKIP entry {ticker} {sig.strike:.0f} — no NBBO in snapshot")
             continue
         limit_price = round(nbbo_mid, 2)
+
+        # Premium-at-risk for this candidate: cash paid (long) or est. initial margin (short).
+        mult = config.CONTRACT_MULTIPLIER
+        if sig.direction == "buy":
+            position_cost = result.qty * mult * limit_price
+        else:
+            position_cost = result.qty * mult * spot * config.SHORT_MARGIN_FRAC
+
+        if deployed_capital + position_cost > config.MAX_PORTFOLIO_CAPITAL:
+            capital_capped = True
+            if verbose:
+                print(f"  CAP reached: deployed=${deployed_capital:,.0f} + "
+                      f"${position_cost:,.0f} for {sig.strike:.0f} would exceed "
+                      f"${config.MAX_PORTFOLIO_CAPITAL:,.0f} — stopping new entries this tick")
+            break
 
         contract = OptionContract(
             underlying=ticker,
@@ -679,9 +700,11 @@ def _run_tick(
             entry_model_iv=sig.model_iv,
             entry_vol_gap=sig.vol_gap,
             entry_spot=spot,
+            entry_premium=round(float(position_cost), 2),
             option_order_id=order_id,
         )
         state.open_positions.append(pos)
+        deployed_capital += position_cost
         n_entered += 1
         entries_log.append({
             "direction": sig.direction, "qty": int(result.qty),
@@ -869,6 +892,8 @@ def _run_tick(
         "n_exited": n_exited,
         "entries": entries_log,
         "exits": exits_log,
+        "deployed_capital": round(deployed_capital, 2),
+        "capital_capped": bool(capital_capped),
         "open_positions": len(active),
         "tick_pnl": round(tick_pnl, 6),
         "session_pnl": round(state.session_pnl, 6),
