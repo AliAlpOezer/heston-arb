@@ -105,21 +105,22 @@ def evaluate(records: list, state: Optional[dict] = None) -> EvalResult:
         EvalResult(events, state). `state` is the new dedup state to persist.
     """
     state = dict(state or {})
-    # On a cold start (no prior state) treat the entire existing log as already-seen,
-    # so we alert only on ticks produced *after* the notifier is first wired in.
     if "last_tick" not in state:
-        last_tick = max((r.get("tick", 0) for r in records), default=0)
-        first_run_date = records[-1].get("date") if records else None
-        halt_active = _status(records[-1]) in {"halted", "kill_triggered"} if records else False
-        return EvalResult(events=[], state={
-            "last_tick": last_tick,
-            "first_run_date": first_run_date,
-            "halt_active": halt_active,
-        })
-
-    last_tick = state.get("last_tick", 0)
-    first_run_date = state.get("first_run_date")
-    halt_active = bool(state.get("halt_active", False))
+        # Cold start (no prior state): suppress records from PRIOR days so we don't
+        # replay stale history as a flood — but evaluate the most recent day as new.
+        # A deploy mid-session must still alert on today's first run, entries, exits
+        # and warnings; marking the whole log seen (the earlier behaviour) silently
+        # swallowed the very tick the operator was waiting to hear about.
+        dates = [r.get("date") for r in records if r.get("date")]
+        latest = max(dates) if dates else None
+        prior = [r for r in records if r.get("date") and latest and r.get("date") < latest]
+        last_tick = max((r.get("tick", 0) for r in prior), default=0)
+        first_run_date = max((r.get("date") for r in prior), default=None)
+        halt_active = _status(prior[-1]) in {"halted", "kill_triggered"} if prior else False
+    else:
+        last_tick = state.get("last_tick", 0)
+        first_run_date = state.get("first_run_date")
+        halt_active = bool(state.get("halt_active", False))
 
     events: list = []
     ok_rmse_hist: list = []        # rolling rmse of ok ticks seen so far (for spike baseline)

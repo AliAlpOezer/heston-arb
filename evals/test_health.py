@@ -27,11 +27,23 @@ def _ok(tick, date="2026-06-25", **kw):
 
 # ── cold start / dedup ──────────────────────────────────────────────────────────
 
-def test_cold_start_emits_nothing_and_baselines():
-    recs = [_ok(1), _ok(2)]
+def test_cold_start_suppresses_prior_days_only():
+    # Prior-day records (24th) must NOT replay; the latest day (25th) is evaluated new.
+    recs = [_ok(1, date="2026-06-24", n_entered=1,
+                entries=[{"direction": "buy", "qty": 1, "strike": 745,
+                          "expiry": "2026-07-25", "vol_gap": 0.02}]),
+            _ok(2, date="2026-06-25")]
     res = evaluate(recs, None)              # no prior state
-    assert res.events == []
-    assert res.state["last_tick"] == 2      # everything marked seen
+    kinds = [e.kind for e in res.events]
+    assert "buy" not in kinds              # the 24th's entry is history, suppressed
+    assert "first_run" in kinds            # the 25th still announces first run
+    assert res.state["last_tick"] == 2
+
+def test_cold_start_same_day_still_alerts():
+    # Deploy mid-session with only today's records: first run should still fire.
+    recs = [_ok(1), _ok(2)]
+    res = evaluate(recs, None)
+    assert [e.kind for e in res.events].count("first_run") == 1
 
 def test_old_records_do_not_reemit():
     recs = [_ok(1, n_entered=1, entries=[{"direction": "buy", "qty": 1, "strike": 745,
