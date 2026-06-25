@@ -68,6 +68,18 @@ EQUITY_BID_ASK_BPS = 2.0
 # stock delta-hedge (denominated in shares) actually neutralizes the option book.
 CONTRACT_MULTIPLIER = 100
 
+# ── Capital limit ───────────────────────────────────────────────────────────────
+# Hard ceiling on capital deployed across the open book, in account currency ($).
+# Measured as premium-at-risk: long legs cost qty×CONTRACT_MULTIPLIER×price (cash paid);
+# short legs are charged an estimated initial margin (see SHORT_MARGIN_FRAC). New entries
+# are filled largest-gap-first and STOP once the next would breach this cap. This is OUR
+# risk limit and is independent of (usually tighter than) the broker's buying power.
+MAX_PORTFOLIO_CAPITAL = 100_000.0
+# Initial-margin estimate for a short option leg, as a fraction of underlying notional
+# (qty×CONTRACT_MULTIPLIER×spot). ~Reg-T 20% is conservative for index/ETF options; this
+# is an approximation — verify against the broker's actual margin schedule before live use.
+SHORT_MARGIN_FRAC = 0.20
+
 # ── Position management ────────────────────────────────────────────────────────
 # Maximum holding period in CALENDAR days before a position is force-closed.
 # Sized at ~2× MEAN_REVERSION_HALFLIFE_DAYS so the gap has time to converge.
