@@ -44,6 +44,7 @@ jobs:
           pip install -r requirements.txt
 
       - name: Run one tick (SPY, Alpaca paper)
+        id: tick
         env:
           ALPACA_API_KEY:    ${{ secrets.ALPACA_API_KEY }}
           ALPACA_SECRET_KEY: ${{ secrets.ALPACA_SECRET_KEY }}
@@ -59,7 +60,22 @@ jobs:
             --tick-log       _state/tick_log.jsonl \
             --chain-log-dir  _state/chains
 
+      - name: Notify (Telegram health alerts)
+        # Always runs — even if the tick step errored — so it can both report any
+        # outcome the loop wrote AND so notifier_state.json is updated before the commit
+        # below pushes it. continue-on-error: a Telegram hiccup must never fail the run.
+        if: always()
+        continue-on-error: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python -m trading.notifier \
+            --tick-log _state/tick_log.jsonl \
+            --state    _state/notifier_state.json
+
       - name: Commit + push state
+        if: always()        # push state (incl. notifier_state.json) even after a failed tick
         working-directory: _state
         run: |
           git config user.name  "heston-bot"
@@ -73,3 +89,18 @@ jobs:
             git pull --rebase origin live-data || true
             git push origin HEAD:live-data
           fi
+
+      - name: Alert on job failure
+        # Fires when any step above failed (e.g. dependency install or a startup crash
+        # that never wrote a tick record — invisible to the tick-log notifier). Inline
+        # curl so it works even if the Python env is the thing that broke.
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID:   ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          curl -s --max-time 20 \
+            "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+            --data-urlencode "chat_id=${TELEGRAM_CHAT_ID}" \
+            --data-urlencode "text=🚨 live-tick workflow FAILED (run ${GITHUB_RUN_ID}). A step errored — likely before the tick wrote any record. Logs: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" \
+            || true
