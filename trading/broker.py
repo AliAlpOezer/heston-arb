@@ -82,6 +82,17 @@ class AccountSnapshot:
     timestamp: str
 
 
+@dataclass
+class Position:
+    """A position actually held at the broker — the reconciliation source of truth."""
+    symbol: str                   # OCC option symbol (e.g. SPY260630P00605000) or ticker
+    qty: int                      # signed: + long, - short
+    avg_entry_price: float = 0.0
+    market_value: float = 0.0
+    unrealized_pnl: float = 0.0
+    asset_class: str = "option"   # "option" | "equity"
+
+
 # ── Broker protocol ───────────────────────────────────────────────────────────
 
 @runtime_checkable
@@ -123,6 +134,11 @@ class Broker(Protocol):
 
     def get_open_orders(self) -> list[Order]:
         """Return all pending (unfilled) orders."""
+        ...
+
+    def get_positions(self) -> Optional[list[Position]]:
+        """Positions actually held at the broker. Return None if the fetch failed —
+        callers must treat None as 'unknown' (skip reconciliation), not as 'flat'."""
         ...
 
 
@@ -188,9 +204,8 @@ class PaperBroker:
         fill_price = fill + slippage
 
         signed_qty = qty if action == "BUY" else -qty
-        self._option_positions[contract.symbol] = (
-            self._option_positions.get(contract.symbol, 0) + signed_qty
-        )
+        sym = _occ_symbol(contract)   # key by OCC so get_positions matches the live broker
+        self._option_positions[sym] = self._option_positions.get(sym, 0) + signed_qty
 
         order = Order(
             order_id=oid,
@@ -247,6 +262,12 @@ class PaperBroker:
 
     def get_open_orders(self) -> list[Order]:
         return [o for o in self._orders.values() if o.status == "pending"]
+
+    def get_positions(self) -> Optional[list[Position]]:
+        return [
+            Position(symbol=sym, qty=int(q), asset_class="option")
+            for sym, q in self._option_positions.items() if q != 0
+        ]
 
     @property
     def hedge_qty(self) -> int:
@@ -514,6 +535,31 @@ class AlpacaBroker:
         except Exception:
             return []
 
+    def get_positions(self) -> Optional[list[Position]]:
+        """Real positions from Alpaca. None on fetch failure (treat as 'unknown')."""
+        try:
+            raw = self._client.get_all_positions()
+        except Exception:
+            return None
+        out = []
+        for p in raw:
+            try:
+                side = str(getattr(p, "side", "")).lower()
+                mag = abs(float(p.qty))
+                qty = int(round(-mag if "short" in side else mag))
+                ac = str(getattr(p, "asset_class", "")).lower()
+                out.append(Position(
+                    symbol=str(p.symbol),
+                    qty=qty,
+                    avg_entry_price=float(p.avg_entry_price or 0),
+                    market_value=float(p.market_value or 0),
+                    unrealized_pnl=float(p.unrealized_pl or 0),
+                    asset_class="option" if "option" in ac else "equity",
+                ))
+            except Exception:
+                continue
+        return out
+
 
 # ── IBKR stub ─────────────────────────────────────────────────────────────────
 
@@ -678,3 +724,7 @@ class IBKRBroker:
             )
             for t in trades
         ]
+
+    def get_positions(self) -> Optional[list[Position]]:
+        warnings.warn("[IBKR] get_positions stub — not implemented")
+        return None

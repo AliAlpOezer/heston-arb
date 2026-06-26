@@ -80,7 +80,7 @@ from risk.hedging import portfolio_delta, optimize_hedge, OptionPosition
 from calibration.uncertainty import filter_signals_by_posterior
 from signals.mispricing import detect_mispricings, MispricingSignal, compute_model_ivs
 from signals.sizing import size_portfolio, SizingResult
-from trading.broker import Broker, PaperBroker, OptionContract, Order
+from trading.broker import Broker, PaperBroker, OptionContract, Order, Position, _occ_symbol
 from trading.state import LiveState, LivePosition
 
 import jax.numpy as jnp
@@ -126,18 +126,99 @@ def _bs_delta(S: float, K: float, T: float, r: float, q: float, sigma: float,
     return math.exp(-q * T) * float(norm.cdf(d1) - 1)
 
 
-def _nbbo_mid(chain: OptionsChain, strike: float, maturity: float) -> Optional[float]:
-    """Return NBBO mid price for the contract closest to (strike, maturity).
+def _reconcile_positions(state: LiveState, broker, ticker: str, today: str,
+                         verbose: bool = False) -> dict:
+    """Reconcile the ledger against the broker's real holdings (live only).
 
-    Returns None if the chain is empty or no contract is close enough.
-    Uses relative strike distance + 2x maturity distance to rank contracts.
+    The broker is the source of truth. For each open ledger position:
+      - held at the broker        -> mark filled, sync qty (covers partial fills)
+      - entry order still working -> keep as pending (may fill later today)
+      - otherwise                 -> never materialised (unfilled/expired/assigned): drop
+    Also resets state.current_hedge to the broker's real share count and reports broker
+    positions we do not track. On a failed position fetch it makes NO changes — a
+    transient API error must not nuke the book.
+    """
+    bpos = broker.get_positions()
+    if bpos is None:
+        if verbose:
+            print("  RECONCILE skipped — broker positions unavailable")
+        return {"reconciled": False, "dropped": 0, "held": 0, "pending": 0, "untracked": 0}
+
+    held = {p.symbol: p for p in bpos
+            if p.asset_class == "option" and p.qty != 0}
+    equity = sum(int(p.qty) for p in bpos
+                 if p.asset_class == "equity" and p.symbol == ticker)
+    try:
+        open_ids = {o.order_id for o in broker.get_open_orders()}
+    except Exception:
+        open_ids = set()
+
+    dropped = matched = pending = 0
+    seen = set()
+    for p in state.active_positions:
+        occ = _occ_symbol(OptionContract(underlying=p.ticker, expiry=p.expiry,
+                                         strike=p.strike, right=p.right))
+        if occ in held:
+            seen.add(occ)
+            p.filled = True
+            p.qty = abs(int(held[occ].qty))
+            if held[occ].avg_entry_price > 0:
+                p.entry_fill_price = abs(float(held[occ].avg_entry_price))
+            matched += 1
+        elif p.option_order_id in open_ids:
+            p.filled = False
+            pending += 1
+        else:
+            p.exited = True
+            p.exit_date = today
+            p.exit_reason = "unfilled"
+            dropped += 1
+
+    untracked = sorted(s for s in held if s not in seen)
+    state.current_hedge = int(equity)
+    if verbose:
+        print(f"  RECONCILE: {matched} held, {pending} pending, {dropped} dropped "
+              f"(unfilled), {len(untracked)} untracked, hedge={state.current_hedge}")
+        for s in untracked:
+            print(f"    [!] untracked broker position {s} x{held[s].qty} — not in ledger")
+    return {"reconciled": True, "dropped": dropped, "held": matched,
+            "pending": pending, "untracked": len(untracked)}
+
+
+def _nbbo_candidate(chain: OptionsChain, strike: float, maturity: float,
+                    opt_type: Optional[str]) -> Optional[int]:
+    """Index of the chain row closest to (strike, maturity) within opt_type, or None.
+
+    When opt_type ("C"/"P") is given, only that option type is considered — required
+    so a put-wing strike (K<F) prices off the real OTM put rather than a same-strike
+    call. Ranks by relative strike distance + 2x maturity distance; rejects matches
+    more than 2% off in strike.
     """
     if len(chain.strikes) == 0:
         return None
-    rel_strike = np.abs(chain.strikes - strike) / max(strike, 1e-6)
-    rel_mat = 2.0 * np.abs(chain.maturities - maturity)
-    idx = int(np.argmin(rel_strike + rel_mat))
-    if rel_strike[idx] > 0.02:
+    if opt_type is not None:
+        sel = np.flatnonzero(chain.option_type == opt_type)
+        if sel.size == 0:
+            return None
+    else:
+        sel = np.arange(len(chain.strikes))
+    rel_strike = np.abs(chain.strikes[sel] - strike) / max(strike, 1e-6)
+    rel_mat = 2.0 * np.abs(chain.maturities[sel] - maturity)
+    j = int(np.argmin(rel_strike + rel_mat))
+    if rel_strike[j] > 0.02:
+        return None
+    return int(sel[j])
+
+
+def _nbbo_mid(chain: OptionsChain, strike: float, maturity: float,
+              opt_type: Optional[str] = None) -> Optional[float]:
+    """Return NBBO mid price for the contract closest to (strike, maturity).
+
+    opt_type ("C"/"P") restricts the search to that option type (see _nbbo_candidate).
+    Returns None if the chain is empty or no contract is close enough.
+    """
+    idx = _nbbo_candidate(chain, strike, maturity, opt_type)
+    if idx is None:
         return None
     bid = float(chain.bid_prices[idx])
     ask = float(chain.ask_prices[idx])
@@ -146,17 +227,15 @@ def _nbbo_mid(chain: OptionsChain, strike: float, maturity: float) -> Optional[f
     return float(chain.mid_prices[idx]) if chain.mid_prices[idx] > 0 else None
 
 
-def _nbbo_bid_ask(chain: OptionsChain, strike: float, maturity: float):
+def _nbbo_bid_ask(chain: OptionsChain, strike: float, maturity: float,
+                  opt_type: Optional[str] = None):
     """Return (bid, ask) for the contract closest to (strike, maturity), or None.
 
-    Used to price capped marketable-limit exits instead of uncapped market orders.
+    opt_type ("C"/"P") restricts to that option type (see _nbbo_mid). Used to price
+    capped marketable-limit exits instead of uncapped market orders.
     """
-    if len(chain.strikes) == 0:
-        return None
-    rel_strike = np.abs(chain.strikes - strike) / max(strike, 1e-6)
-    rel_mat = 2.0 * np.abs(chain.maturities - maturity)
-    idx = int(np.argmin(rel_strike + rel_mat))
-    if rel_strike[idx] > 0.02:
+    idx = _nbbo_candidate(chain, strike, maturity, opt_type)
+    if idx is None:
         return None
     bid = float(chain.bid_prices[idx])
     ask = float(chain.ask_prices[idx])
@@ -602,6 +681,14 @@ def _run_tick(
             print(f"    (0 raw signals: RMSE {rmse:.4f} > SIGNAL_MAX_RMSE "
                   f"{config.SIGNAL_MAX_RMSE} — fit-quality gate suppressed the whole surface)")
 
+    # ── Reconcile the ledger to the broker's real holdings (source of truth) ──
+    # Drops never-filled phantom positions and resets the hedge BEFORE any sizing,
+    # marking, or hedging runs on a fictional book. Live only; dry runs simulate fills.
+    if dry_run:
+        recon = {"reconciled": False, "dropped": 0, "held": 0, "pending": 0, "untracked": 0}
+    else:
+        recon = _reconcile_positions(state, broker, ticker, today, verbose=verbose)
+
     # ── 9. New entries ────────────────────────────────────────────────
     new_signals = [
         sig for sig in raw_signals
@@ -633,12 +720,19 @@ def _run_tick(
         sig = result.signal
         expiry = _maturity_to_expiry(today, sig.maturity)
 
-        # NBBO mid price from the chain for limit order pricing. If the contract is
-        # not in the snapshot, skip the entry rather than submitting a blind price.
-        nbbo_mid = _nbbo_mid(chain, sig.strike, sig.maturity)
+        # Trade the OTM instrument at this strike: a put below the forward, a call
+        # at/above it. The IV surface is option-type-agnostic (put-call parity), but
+        # we must trade — and price — the actual OTM option; else a put-wing strike
+        # (K<F) becomes a deep-ITM call priced off the cheap put and never fills.
+        forward = chain.forward(sig.maturity)
+        right = "P" if sig.strike < forward else "C"
+
+        # NBBO mid for THAT instrument. If it is not in the snapshot, skip the entry
+        # rather than submitting a blind price.
+        nbbo_mid = _nbbo_mid(chain, sig.strike, sig.maturity, opt_type=right)
         if nbbo_mid is None:
             if verbose:
-                print(f"  SKIP entry {ticker} {sig.strike:.0f} — no NBBO in snapshot")
+                print(f"  SKIP entry {ticker} {sig.strike:.0f}{right} — no NBBO in snapshot")
             continue
         limit_price = round(nbbo_mid, 2)
 
@@ -661,12 +755,12 @@ def _run_tick(
             underlying=ticker,
             expiry=expiry,
             strike=sig.strike,
-            right="C",
+            right=right,
         )
 
         action = "BUY" if sig.direction == "buy" else "SELL"
         if verbose:
-            print(f"  ENTER {action} {result.qty}x {ticker} {sig.strike:.0f} "
+            print(f"  ENTER {action} {result.qty}x {ticker} {sig.strike:.0f}{right} "
                   f"exp={expiry} gap={sig.vol_gap:+.3f} lmt={limit_price:.2f}")
 
         order_id = None
@@ -694,6 +788,8 @@ def _run_tick(
             strike=sig.strike,
             maturity=sig.maturity,
             expiry=expiry,
+            right=right,
+            filled=dry_run,   # live: unconfirmed until reconciliation; dry: simulated fill
             direction=sig.direction,
             qty=result.qty,
             entry_market_iv=sig.market_iv,
@@ -701,6 +797,7 @@ def _run_tick(
             entry_vol_gap=sig.vol_gap,
             entry_spot=spot,
             entry_premium=round(float(position_cost), 2),
+            entry_fill_price=limit_price,   # provisional; reconcile overwrites with real fill
             option_order_id=order_id,
         )
         state.open_positions.append(pos)
@@ -720,6 +817,8 @@ def _run_tick(
     exits_log: list = []   # per-contract exit detail for the tick log / notifier
 
     for pos in state.active_positions:
+        if not pos.filled:
+            continue   # entry order not yet filled — no real exposure to mark or exit
         # Wall-clock holding age in days — interval-agnostic. (Was `age_days += 1`
         # per tick, which at the 5-min production cadence force-closed every
         # position after 10 ticks = ~50 min instead of 10 days.)
@@ -737,15 +836,18 @@ def _run_tick(
         cur_market_iv = float(surface.market_ivs[idx])
         cur_model_iv = float(model_ivs[idx]) if not np.isnan(model_ivs[idx]) else np.nan
 
-        if not np.isnan(cur_market_iv):
-            vega = (pos.entry_spot * math.exp(-chain.q * pos.maturity)
-                    * float(norm.pdf(0.0)) * math.sqrt(pos.maturity))
-            if pos.direction == "sell":
-                move = pos.qty * vega * (pos.entry_market_iv - cur_market_iv)
-            else:
-                move = pos.qty * vega * (cur_market_iv - pos.entry_market_iv)
-            pos.cumulative_pnl += move
-            tick_pnl += move
+        # Mark-to-market: real P&L = (mark - entry fill) x qty x multiplier, signed by
+        # direction. Mark = current NBBO mid of the actual instrument (pos.right). This
+        # is the cumulative LEVEL since entry (ASSIGNED, not accumulated) — the prior
+        # code re-added the full entry->now vega move every tick, so P&L drifted with
+        # tick count instead of tracking the position. If the mark is unavailable this
+        # tick, the last mark is carried forward (no spurious change).
+        cur_mid = _nbbo_mid(chain, pos.strike, pos.maturity, opt_type=pos.right)
+        if cur_mid is not None and pos.entry_fill_price > 0:
+            sign = 1.0 if pos.direction == "buy" else -1.0
+            new_cum = sign * pos.qty * config.CONTRACT_MULTIPLIER * (cur_mid - pos.entry_fill_price)
+            tick_pnl += (new_cum - pos.cumulative_pnl)
+            pos.cumulative_pnl = new_cum
 
         # Exit conditions
         exit_reason = None
@@ -768,7 +870,7 @@ def _run_tick(
             # marketable-limit order. If no NBBO is available, leave the position open
             # and retry next tick rather than crossing blind with a market order.
             if not dry_run:
-                ba = _nbbo_bid_ask(chain, pos.strike, pos.maturity)
+                ba = _nbbo_bid_ask(chain, pos.strike, pos.maturity, opt_type=pos.right)
                 if ba is None:
                     if verbose:
                         print(f"  EXIT deferred {pos.ticker} {pos.strike:.0f} "
@@ -783,7 +885,7 @@ def _run_tick(
                 try:
                     exit_contract = OptionContract(
                         underlying=pos.ticker, expiry=pos.expiry,
-                        strike=pos.strike, right="C",
+                        strike=pos.strike, right=pos.right,
                     )
                     exit_order = broker.submit_option_order(
                         contract=exit_contract, action=exit_action,
@@ -802,13 +904,19 @@ def _run_tick(
             pos.exited = True
             pos.exit_date = today
             pos.exit_reason = exit_reason
+            state.realized_pnl += pos.cumulative_pnl   # book realized P&L at the exit mark
             exits_log.append({
                 "direction": pos.direction, "qty": int(pos.qty),
                 "strike": round(float(pos.strike), 2), "expiry": pos.expiry,
                 "reason": exit_reason, "pnl": round(float(pos.cumulative_pnl), 4),
             })
 
-    state.session_pnl += tick_pnl
+    # session P&L = realized (from closed positions) + unrealized (open filled marks),
+    # recomputed from real marks each tick — NOT a running accumulator that can drift.
+    # This also clears any legacy fictional session_pnl once phantoms are reconciled out.
+    state.session_pnl = state.realized_pnl + sum(
+        p.cumulative_pnl for p in state.active_positions if p.filled
+    )
 
     # ── 11. Delta rebalance ───────────────────────────────────────────
     positions_for_hedge = [
@@ -816,14 +924,14 @@ def _run_tick(
             ticker=p.ticker,
             strike=p.strike,
             maturity=p.maturity,
-            option_type="C",
+            option_type=p.right,
             qty=(p.qty if p.direction == "buy" else -p.qty),
             spot=spot,
             r=chain.r,
             q=chain.q,
             implied_vol=p.entry_market_iv,
         )
-        for p in state.active_positions
+        for p in state.active_positions if p.filled
     ]
 
     port_delta = portfolio_delta(positions_for_hedge) if positions_for_hedge else 0.0
@@ -867,6 +975,8 @@ def _run_tick(
         "time": now,
         "date": today,
         "status": "ok",
+        "recon_dropped": recon["dropped"],
+        "recon_untracked": recon["untracked"],
         "spot": round(spot, 4),
         "r": round(float(chain.r), 6),
         "q": round(float(chain.q), 6),

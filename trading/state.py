@@ -45,6 +45,13 @@ class LivePosition:
     entry_premium: float = 0.0  # capital deployed at entry ($): premium paid (long) or
                                 # estimated initial margin (short). Sums to the book's
                                 # deployed capital for the MAX_PORTFOLIO_CAPITAL check.
+    entry_fill_price: float = 0.0  # per-share fill price for MTM; set from the broker's
+                                   # real avg_entry_price on reconcile (limit price until).
+    right: str = "C"            # "C" or "P" — the OTM instrument actually traded (put
+                                # when strike<forward, call otherwise). Legacy recs = "C".
+    filled: bool = True         # True once the broker confirms the fill. Live entries set
+                                # this False until reconciliation sees the position held;
+                                # unfilled positions are not marked or hedged. (Legacy=True.)
     age_days: int = 0
     cumulative_pnl: float = 0.0
     option_order_id: Optional[str] = None   # broker order ID for entry
@@ -62,6 +69,7 @@ class LiveState:
     prev_params: Optional[dict] = None   # HestonParams as dict for JSON
     last_tick_time: Optional[str] = None
     session_pnl: float = 0.0
+    realized_pnl: float = 0.0            # cumulative P&L booked from closed positions
     n_ticks: int = 0
     consec_fail_ticks: int = 0                  # consecutive ticks with RMSE > fail threshold
     intraday_halt_date: Optional[str] = None    # date the intraday breaker paused new entries
@@ -110,6 +118,7 @@ class LiveState:
             "prev_params": self.prev_params,
             "last_tick_time": self.last_tick_time,
             "session_pnl": self.session_pnl,
+            "realized_pnl": self.realized_pnl,
             "n_ticks": self.n_ticks,
             "consec_fail_ticks": self.consec_fail_ticks,
             "intraday_halt_date": self.intraday_halt_date,
@@ -131,6 +140,7 @@ class LiveState:
             prev_params=data.get("prev_params"),
             last_tick_time=data.get("last_tick_time"),
             session_pnl=data.get("session_pnl", 0.0),
+            realized_pnl=data.get("realized_pnl", 0.0),
             n_ticks=data.get("n_ticks", 0),
             consec_fail_ticks=data.get("consec_fail_ticks", 0),
             intraday_halt_date=data.get("intraday_halt_date"),
