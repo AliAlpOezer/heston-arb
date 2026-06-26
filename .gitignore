@@ -30,6 +30,7 @@ jax_cache/
 *.ipynb
 !colab.ipynb
 !colab_diagnostic.ipynb
+!colab_validate_fixes.ipynb
 
 # Data files (options chain CSVs, parquet, HDF5)
 data/raw/
