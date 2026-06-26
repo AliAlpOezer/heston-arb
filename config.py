@@ -49,8 +49,11 @@ UNCERTAINTY_CREDIBLE_LEVEL = 0.90
 SIGNAL_MAX_RMSE = 0.10
 # Reject implausibly large vol gaps (IV-extraction / model artifacts, not real edges).
 MAX_VOL_GAP = 0.10                            # 10 vol points
-# Only signal within this |log-moneyness| band — deep ITM/OTM IV is unstable and vega~0.
-MAX_SIGNAL_LOG_MONEYNESS = 0.20
+# Only signal within this |log-moneyness| band — deep ITM/OTM IV is unstable and vega~0,
+# and a single-factor Heston misfits the steep short-dated skew wing (gaps there are fit
+# error, not edge). Tightened 0.20 -> 0.10 to keep trades near-ATM where vega is high and
+# the fit holds; the prior 0.20 let through the 16-20% OTM wing that produced junk signals.
+MAX_SIGNAL_LOG_MONEYNESS = 0.10
 # Restrict the calibration grid to this |log-moneyness| band so a single-factor Heston
 # can actually fit it; the full ±0.5 surface drives RMSE up and floods false signals.
 MAX_CAL_LOG_MONEYNESS = 0.30
@@ -85,6 +88,12 @@ SHORT_MARGIN_FRAC = 0.20
 # Sized at ~2× MEAN_REVERSION_HALFLIFE_DAYS so the gap has time to converge.
 # NOTE: this is wall-clock days, NOT tick count — must not be driven by tick cadence.
 MAX_HOLD_DAYS = 10
+
+# Risk exits on a position's REAL mark-to-market P&L vs its premium-at-risk (entry_premium).
+# Complement the thesis exit (gap_closed) and the time exits (MIN_TTM_DAYS / MAX_HOLD_DAYS).
+# Initial defaults — retune once the Colab/backtest P&L distribution is known.
+STOP_LOSS_FRAC = 0.50        # close once MTM loss reaches 50% of capital-at-risk
+TAKE_PROFIT_FRAC = 1.00      # close once MTM gain reaches 100% of capital-at-risk
 
 # ── Popper kill conditions ────────────────────────────────────────────────────
 # Consecutive days of calibration failure before strategy is halted

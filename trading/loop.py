@@ -849,7 +849,10 @@ def _run_tick(
             tick_pnl += (new_cum - pos.cumulative_pnl)
             pos.cumulative_pnl = new_cum
 
-        # Exit conditions
+        # Exit conditions, in priority: risk control (stop-loss/take-profit) -> thesis
+        # close (gap_closed) -> time (expiry/max_hold). Stop/TP act on the REAL MTM P&L
+        # (Bucket 3) vs premium-at-risk; cumulative_pnl is meaningful only for filled
+        # positions, which is guaranteed by the `if not pos.filled: continue` guard above.
         exit_reason = None
         # Days to expiry from the fixed expiry date and the current date — NOT
         # maturity*365 - age_days (which mixed calendar days with a tick counter).
@@ -857,13 +860,18 @@ def _run_tick(
             ttm_days = (date.fromisoformat(pos.expiry) - date.fromisoformat(today)).days
         except (ValueError, TypeError):
             ttm_days = pos.maturity * 365 - age_days  # fallback
-        if ttm_days < config.MIN_TTM_DAYS:
+        risk = pos.entry_premium
+        if risk > 0 and pos.cumulative_pnl <= -config.STOP_LOSS_FRAC * risk:
+            exit_reason = "stop_loss"
+        elif risk > 0 and pos.cumulative_pnl >= config.TAKE_PROFIT_FRAC * risk:
+            exit_reason = "take_profit"
+        elif (not np.isnan(cur_market_iv) and not np.isnan(cur_model_iv)
+              and abs(cur_model_iv - cur_market_iv) < 0.005):
+            exit_reason = "gap_closed"
+        elif ttm_days < config.MIN_TTM_DAYS:
             exit_reason = "expiry"
         elif age_days >= config.MAX_HOLD_DAYS:
             exit_reason = "max_hold"
-        elif not np.isnan(cur_market_iv) and not np.isnan(cur_model_iv):
-            if abs(cur_model_iv - cur_market_iv) < 0.005:
-                exit_reason = "gap_closed"
 
         if exit_reason:
             # In live mode, only finalize the exit if we can price and submit a capped
