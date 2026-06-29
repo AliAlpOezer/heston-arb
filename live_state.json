@@ -20,9 +20,9 @@
       "age_days": 1,
       "cumulative_pnl": -1139.1159841842439,
       "option_order_id": "60caa100-f367-4ddc-9167-34b87dae5b3b",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -45,9 +45,9 @@
       "age_days": 1,
       "cumulative_pnl": -592.5146678679694,
       "option_order_id": "a7d60fe6-4bd0-4c3e-b517-9d7038de3efd",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -70,9 +70,9 @@
       "age_days": 1,
       "cumulative_pnl": 828.0118167577368,
       "option_order_id": "5bb72b32-961c-4f48-959f-f98975c804c8",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -95,9 +95,9 @@
       "age_days": 1,
       "cumulative_pnl": -513.256748398876,
       "option_order_id": "12343401-9d4d-49a6-a894-5954cb688800",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -120,9 +120,9 @@
       "age_days": 1,
       "cumulative_pnl": -437.02948847634724,
       "option_order_id": "6cc1d203-d2b4-4f9f-aa85-ea066ba80f0f",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -145,9 +145,9 @@
       "age_days": 1,
       "cumulative_pnl": -449.86682856802895,
       "option_order_id": "800e1f2a-0f27-4239-943d-5dbaef4d84bf",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -170,9 +170,9 @@
       "age_days": 1,
       "cumulative_pnl": -480.56923095046915,
       "option_order_id": "674557c9-b998-4e85-bf25-5726324a8020",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -195,9 +195,9 @@
       "age_days": 1,
       "cumulative_pnl": -158.29472998318468,
       "option_order_id": "798ebf28-1a57-453b-a5e8-a1f55f31f75f",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -220,9 +220,9 @@
       "age_days": 1,
       "cumulative_pnl": -162.16770366749182,
       "option_order_id": "e7c8c935-f409-429e-9deb-f0743139a810",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -245,9 +245,9 @@
       "age_days": 1,
       "cumulative_pnl": -945.9087013794262,
       "option_order_id": "f9b69332-989c-43fb-8e3c-1106c97f2143",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -270,9 +270,9 @@
       "age_days": 1,
       "cumulative_pnl": -650.3164108262731,
       "option_order_id": "d48e4ee8-a836-4d89-921c-1c47bd6205df",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -295,9 +295,9 @@
       "age_days": 1,
       "cumulative_pnl": -314.8434931112224,
       "option_order_id": "a327bb28-26b3-489a-9472-657e24d26f2a",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -320,9 +320,9 @@
       "age_days": 1,
       "cumulative_pnl": -234.352820026032,
       "option_order_id": "7524f35e-7a59-4e51-b7e3-4da8baa9dadc",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -345,9 +345,9 @@
       "age_days": 1,
       "cumulative_pnl": -445.1801513808307,
       "option_order_id": "f484d93d-de16-4a23-9e37-28343f0df4e4",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -370,9 +370,9 @@
       "age_days": 1,
       "cumulative_pnl": -555.3313522698548,
       "option_order_id": "57b83bb8-bed0-4cf7-badb-4723f2cd116a",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -395,9 +395,9 @@
       "age_days": 1,
       "cumulative_pnl": 468.8100284429867,
       "option_order_id": "76097559-50cb-4877-8776-f14d53201c37",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -420,9 +420,9 @@
       "age_days": 1,
       "cumulative_pnl": 423.9984636774723,
       "option_order_id": "8f0d5cea-6364-4291-a8d5-a598edd39bec",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -445,9 +445,9 @@
       "age_days": 1,
       "cumulative_pnl": -396.8241420694114,
       "option_order_id": "a3beaad6-e721-4f3e-986e-809e5eb9bc9f",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -470,9 +470,9 @@
       "age_days": 1,
       "cumulative_pnl": 231.0242085402867,
       "option_order_id": "8093681b-18f0-4c1e-a0a5-21e3bbf68ef2",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -495,9 +495,9 @@
       "age_days": 0,
       "cumulative_pnl": -341.62691258335803,
       "option_order_id": "56feee28-77c0-4ab6-b5fe-ba3842a0c288",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -520,9 +520,9 @@
       "age_days": 0,
       "cumulative_pnl": -270.0029451298108,
       "option_order_id": "6424f477-fa20-47d3-ade8-33be4b8ef2a2",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -545,9 +545,9 @@
       "age_days": 0,
       "cumulative_pnl": -424.3459327281552,
       "option_order_id": "60ebbe8c-0fa9-4548-97df-fde5e1d8f0d2",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -570,9 +570,9 @@
       "age_days": 0,
       "cumulative_pnl": 258.45508069150753,
       "option_order_id": "393a0f86-b09d-485b-82ef-9bc4ba8f75fa",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -595,9 +595,9 @@
       "age_days": 0,
       "cumulative_pnl": -590.5325777648101,
       "option_order_id": "bb09475d-01cc-4f10-be6b-68419309c581",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -620,9 +620,9 @@
       "age_days": 0,
       "cumulative_pnl": 361.2721787229294,
       "option_order_id": "143bec0d-bbc3-4ece-8d9d-5a47662f6bd6",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -645,9 +645,9 @@
       "age_days": 0,
       "cumulative_pnl": 418.60847736571264,
       "option_order_id": "c6b0ccf3-521b-4a02-b690-222c871b7a3e",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -670,9 +670,9 @@
       "age_days": 0,
       "cumulative_pnl": -33.449222428432954,
       "option_order_id": "58874083-0c88-434d-85e7-49853220ac8e",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -695,9 +695,9 @@
       "age_days": 0,
       "cumulative_pnl": -57.64775899722636,
       "option_order_id": "fec32237-8741-4aaa-9fc6-b1337ad8d08a",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -720,9 +720,9 @@
       "age_days": 0,
       "cumulative_pnl": 163.613721027155,
       "option_order_id": "f210fae1-9598-4411-85c7-7b690258561d",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -745,9 +745,9 @@
       "age_days": 0,
       "cumulative_pnl": -10.611803585057615,
       "option_order_id": "7e03ed9f-65ce-40bf-b44e-60e47df996e4",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     },
     {
@@ -770,24 +770,24 @@
       "age_days": 0,
       "cumulative_pnl": 13.494722740677345,
       "option_order_id": "c267b49a-9724-4a4a-988e-5774ec361003",
-      "exited": false,
-      "exit_date": null,
-      "exit_reason": null,
+      "exited": true,
+      "exit_date": "2026-06-29",
+      "exit_reason": "unfilled",
       "exit_order_id": null
     }
   ],
-  "current_hedge": -10000,
+  "current_hedge": 1,
   "prev_params": {
-    "kappa": 6.9765892079113625,
-    "theta": 0.03584704880778467,
-    "xi": 0.7065270039712573,
-    "rho": -0.5847539566808493,
-    "v0": 0.02578689774076575
+    "kappa": 7.001015544961602,
+    "theta": 0.03489271557966897,
+    "xi": 0.6982780528919295,
+    "rho": -0.6088852626218383,
+    "v0": 0.025525875620601005
   },
-  "last_tick_time": "2026-06-26T22:56:07Z",
-  "session_pnl": -6036.500908410049,
+  "last_tick_time": "2026-06-29T14:33:10Z",
+  "session_pnl": 0.0,
   "realized_pnl": 0.0,
-  "n_ticks": 128,
+  "n_ticks": 129,
   "consec_fail_ticks": 0,
   "intraday_halt_date": null,
   "created_at": "2026-06-25T09:32:48.561404"
