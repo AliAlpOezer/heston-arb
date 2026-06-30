@@ -1,9 +1,9 @@
 {
-  "last_tick": 201,
+  "last_tick": 202,
   "first_run_date": "2026-06-30",
   "halt_active": false,
   "warn_throttle": {
-    "rmse_gate_suppressed": 144,
+    "rmse_gate_suppressed": 202,
     "gate_problem": 201,
     "capital_capped": 201
   }
