@@ -22,5 +22,11 @@
     "ticker": "SPY",
     "rmse": 0.10955261184174371,
     "failed": true
+  },
+  {
+    "date": "2026-07-01",
+    "ticker": "SPY",
+    "rmse": 0.10389150611791499,
+    "failed": true
   }
 ]

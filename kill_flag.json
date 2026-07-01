@@ -1,7 +1,7 @@
 {
-  "halted": false,
-  "triggered_on": null,
-  "triggered_ticker": null,
-  "consecutive_failures": 4,
-  "reason": ""
+  "halted": true,
+  "triggered_on": "2026-07-01",
+  "triggered_ticker": "SPY",
+  "consecutive_failures": 5,
+  "reason": "5 consecutive calibration failures for SPY (RMSE > 0.100). Last date: 2026-07-01. Manual review required before resuming."
 }
