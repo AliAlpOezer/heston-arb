@@ -784,10 +784,10 @@
     "rho": -0.6068158240258177,
     "v0": 0.018245357982700865
   },
-  "last_tick_time": "2026-07-01T17:44:00Z",
+  "last_tick_time": "2026-07-01T19:25:32Z",
   "session_pnl": 0.0,
   "realized_pnl": 0.0,
-  "n_ticks": 206,
+  "n_ticks": 207,
   "consec_fail_ticks": 1,
   "intraday_halt_date": null,
   "created_at": "2026-06-25T09:32:48.561404"
